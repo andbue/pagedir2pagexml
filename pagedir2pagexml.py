@@ -125,10 +125,12 @@ def pagexmlcombine(ocrindex, gtindex, xmlfile):
     # start writing coordmap back to xml
     for rid in sorted(coordmap):
         textregion = root.find('.//ns:TextRegion[@id="'+rid+'"]', namespaces=ns)
+        regiontext = []
+
         # angle
         if coordmap[rid]["angle"]:
             textregion.attrib["orientation"] = str(-1 * coordmap[rid]["angle"])
-        #lines
+        # lines
         for lid in coordmap[rid]["lines"]:
             linexml = textregion.find('./ns:TextLine[@id="'+lid+'"]', namespaces=ns)
             if linexml is None:
@@ -142,7 +144,7 @@ def pagexmlcombine(ocrindex, gtindex, xmlfile):
             
             # text
             if "ocr" in coordmap[rid]["lines"][lid]:
-                textequivxml = textregion.find('./ns:TextEquiv[@index="'+str(ocrindex)+'"]', namespaces=ns)
+                textequivxml = linexml.find('./ns:TextEquiv[@index="'+str(ocrindex)+'"]', namespaces=ns)
                 if textequivxml is None:
                     textequivxml = etree.SubElement(linexml, "TextEquiv", attrib={"index":str(ocrindex)})
                 unicodexml = textequivxml.find('./ns:Unicode', namespaces=ns)
@@ -150,13 +152,31 @@ def pagexmlcombine(ocrindex, gtindex, xmlfile):
                     unicodexml = etree.SubElement(textequivxml, "Unicode")
                 unicodexml.text = coordmap[rid]["lines"][lid]["ocr"]
             if "gt" in coordmap[rid]["lines"][lid]:
-                textequivxml = textregion.find('./ns:TextEquiv[@index="'+str(gtindex)+'"]', namespaces=ns)
+                textequivxml = linexml.find('./ns:TextEquiv[@index="'+str(gtindex)+'"]', namespaces=ns)
                 if textequivxml is None:
                     textequivxml = etree.SubElement(linexml, "TextEquiv", attrib={"index":str(gtindex)})
                 unicodexml = textequivxml.find('./ns:Unicode', namespaces=ns)
                 if unicodexml is None:
                     unicodexml = etree.SubElement(textequivxml, "Unicode")
                 unicodexml.text = coordmap[rid]["lines"][lid]["gt"]
+            
+            # region text collect
+            for lid in coordmap[rid]["lines"]:
+                if "gt" in coordmap[rid]["lines"][lid]:
+                    regiontext.append(coordmap[rid]["lines"][lid]["gt"])
+                elif "ocr" in coordmap[rid]["lines"][lid]:
+                    regiontext.append(coordmap[rid]["lines"][lid]["ocr"])
+                else:
+                    regiontext.append("")
+                    
+        # region text insert
+        textequivxml = textregion.find('./ns:TextEquiv', namespaces=ns)
+        if textequivxml is None:
+            textequivxml = etree.SubElement(textregion, "TextEquiv")
+        unicodexml = textequivxml.find('./ns:Unicode', namespaces=ns)
+        if unicodexml is None:
+            unicodexml = etree.SubElement(textequivxml, "Unicode")
+        unicodexml.text = "\n".join(regiontext)
     
     # timestamp
     lastchange = root.find('.//ns:LastChange', namespaces=ns)
